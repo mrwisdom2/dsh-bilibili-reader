@@ -1,0 +1,18 @@
+# vision-overlay.yml —— 把「视觉小工具」MCP 叠进两条链（刷B站正经轮 + 私信回复轮）
+#
+# 由 dm-session.mjs 包装器在**每一轮**的 args 末尾追加 `--patch 本文件` ⇒ **零改插件**。
+# 为什么必须走这条路（而不是改进插件自带的那个 MCP）：
+#   · 插件那个 MCP 的工具白名单是**硬编码**在 index.js 的 mcpWhitelist() 里；
+#   · 而 headless-overlay.yml 又是**每轮重写**的 ⇒ 往里加工具会被覆盖 ✗。
+#   · 包装器是我们自己的入口，所以在这里叠一层最干净 ✓。
+#
+# 顺序：bundle → profile → 插件的 overlay → 本文件（最后叠 = 优先级最高）✓
+- insert:
+    - id: mcp-vision
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: vision
+        transport: stdio
+        command: '{{BILI_DUTY_HOME}}/.venv/bin/python'
+        args:
+          - '{{BILI_DUTY_HOME}}/duty_mcp.py'

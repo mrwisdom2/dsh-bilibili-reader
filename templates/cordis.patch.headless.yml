@@ -1,0 +1,90 @@
+# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; `!!js` expressions allowed).
+#
+# ⭐ 为什么这里必须有一份 provider 配置：
+#    「刷B站」(dsh-bili-scroll) 到点起的那一轮走的是 **headless** profile：
+#      dsh --profile headless --patch <插件 overlay> <值班提示词>
+#    而 provider 定义只写在 web profile 里 ⇒ 这个 profile 里 `llm-pi-ai`
+#    虽然由 dsh-base 注册，却**一个 provider 都没有**。插件的 overlay 只会写
+#    「默认模型 = tencent」，带不了 provider 定义，于是那一轮直接以
+#      dsh: NO_ADAPTER: no adapter registered for provider "tencent"
+#    退出（code=1），报告也不会生成。
+#    ⇒ 这份 patch 就是把它补齐。改模型时**两个 profile 都要改**。
+#
+# ⚠️ 密钥不在这里：TENCENT_API_KEY 由 DSH 的凭证库（~/.dsh/.credentials.yaml
+#    里的 refs）按名字解析；headless 那边 `credentials` 服务默认被 dsh-headless
+#    关掉了，插件的一次性 overlay 会负责重新打开。
+
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: tencent
+    model: DeepSeek-V4.1-Flash
+
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      tencent:
+        apiKeyEnv: TENCENT_API_KEY
+        api: openai-completions
+        baseURL: https://tokenhub.tencentmaas.com/plan/v3
+        # ⭐ 2026-10-23：声明这个 provider 的模型**能收图片**。
+        #    适配器默认只给 ['text']（schema 里的 defaultInput），不声明的话
+        #    MCP 工具返回的图片内容块会被丢掉 —— 模型只能靠读源码猜，
+        #    实测它自己都说"我没真的看见"。本机模型实测支持视觉（给它纯红 PNG，答"红色"）。
+        defaultInput: ['text', 'image']
+        # ⭐ 2026-10-23：**这里刻意不设 `reasoning`** —— 即"回到模型默认"。
+        #    适配器逻辑：`reasoning` 不设 ⇒ 不广播 defaultEffort ⇒ 请求里**不带**
+        #    reasoning_effort ⇒ 用模型自己的默认行为。
+        #    （曾短暂设成 'high' 试过，用户决定回退。）
+        #    档位声明 `reasoningEfforts` 保留：它让抽取要的 'low' 合法，那句
+        #    「档位不被支持」的警告因此不再出现；正常请求则不受影响（不带参数）。
+        models:
+          - id: deepseek-v4-pro-202606
+            name: deepseek-v4-pro-202606
+            contextWindow: 1000000
+            maxTokens: 256000
+            # ⭐ 2026-10-23：**声明可选思考档位**。不声明 ⇒ 适配器按 reasoning:false 处理
+            #    ⇒ 支持列表为空 ⇒ 任何档位都被拒（日志里那句「档位 X 不被支持」）。
+            #    实测本机端点：接受 minimal/low/medium/high，**拒绝 off**（HTTP 400）
+            #    ⇒ off 写成 null（源码允许：只有 off 可以不给 wire 值 = 不发该参数）；
+            #      xhigh/max 端点没有对应值，映射到 high，避免上层要高档时直接报错。
+            reasoningEfforts:
+              'off': null   # ⚠️ 必须引号！裸写 off 会被 YAML 当成布尔 False
+              minimal: 'minimal'
+              low: 'low'
+              medium: 'medium'
+              high: 'high'
+              xhigh: 'high'
+              max: 'high'
+          - id: DeepSeek-V4.1-Flash
+            name: DeepSeek-V4.1-Flash
+            contextWindow: 1000000
+            maxTokens: 256000
+            # ⭐ 2026-10-23：**声明可选思考档位**。不声明 ⇒ 适配器按 reasoning:false 处理
+            #    ⇒ 支持列表为空 ⇒ 任何档位都被拒（日志里那句「档位 X 不被支持」）。
+            #    实测本机端点：接受 minimal/low/medium/high，**拒绝 off**（HTTP 400）
+            #    ⇒ off 写成 null（源码允许：只有 off 可以不给 wire 值 = 不发该参数）；
+            #      xhigh/max 端点没有对应值，映射到 high，避免上层要高档时直接报错。
+            reasoningEfforts:
+              'off': null   # ⚠️ 必须加引号：裸写 off 会被 YAML 当成布尔 False
+              minimal: 'minimal'
+              low: 'low'
+              medium: 'medium'
+              high: 'high'
+              xhigh: 'high'
+              max: 'high'
+
+
+# ⭐ 2026-10-23：给 headless 也装记忆，让「刷B站轮」和「私信回复轮」共享同一份库。
+#    两条链的 cwd 都是 ~/.dsh/bili-duty ⇒ 记忆库天然是同一个
+#    （~/.dsh/bili-duty/.dsh-meow/memory.db），不需要任何桥接。
+#    ⚠️ 前提是 meow-memory 的定时器已 unref（见 patch-plugin.sh 补丁4）——
+#    否则这个 profile 的进程**永不退出**，刷B站会静默挂死。
+- id: meow-memory
+  name: meow-memory
+  config:
+    promptLang: 'zh'
+    reflect: true # 一轮结束自动沉淀记忆（两条链共用这套配置）

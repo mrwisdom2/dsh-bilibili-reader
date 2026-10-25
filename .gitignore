@@ -1,0 +1,98 @@
+# ══════════════════════════════════════════════════════════════════
+#  发布白名单模式 —— 先忽略一切，再逐条放行
+#  ⭐ 为什么用白名单：黑名单是"fail open"的（新冒出来的敏感文件会被默认放行 ✗），
+#     白名单是"fail closed"的（没被点名的一律不进 ✓）。
+#  顺序很重要：git 取**最后一条匹配**的规则 ⇒ 白名单在前、防御性黑名单在后。
+# ══════════════════════════════════════════════════════════════════
+
+# ── ① 默认：什么都不发布 ──
+/*
+!.gitignore
+!README.md
+!LICENSE
+!install.sh
+!config.example.json
+!NOTICE.md
+!.github/
+!.github/**
+
+# ── ② 放行"可发布物"（目录本身必须先放行，否则里面的文件放不出来）──
+!scripts/
+!tools/
+!patches/
+!templates/
+!docs/
+!examples/
+
+!scripts/**
+!tools/**
+!patches/*.py
+!templates/**
+!docs/**
+!examples/**
+
+# ══════════════════════════════════════════════════════════════════
+#  ③ 防御性黑名单（放在最后 = 优先级最高）
+#     就算有人手动放进 scripts/ 或 git add -f，这些也永远被拒绝
+# ══════════════════════════════════════════════════════════════════
+
+# —— 凭证类：一泄就是账号/钱包 ——
+bili_credential.json
+.credentials.yaml
+*credential*.json
+*cookie*
+*.session
+**/session-*/
+
+# —— 记忆库 / 向量库 / 轮次库 ——
+memory.db
+memory.db.bak*
+**/.dsh-meow/
+**/.dsh-semantic/
+turns.db
+vectors.json
+
+# —— 运行数据与日志（含 UID、消息片段、行为画像）——
+duty.log
+state.json
+verify-state.json
+seen.md
+**/out/
+**/reports/
+**/digest/
+**/persona-history/
+**/session-archive/
+rag.db
+*.db
+
+# —— 环境与大文件 ——
+.venv/
+.venv-asr/
+.hf-cache/
+uv-cache/
+uv-python/
+node_modules/
+__pycache__/
+*.pyc
+*.bak
+*.bak-*
+*.m4a
+*.mp4
+*.mp3
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.zstd
+*.jsonl
+
+# —— 本地专用配置（真实值放这里，别提交）——
+local.config.json
+*.local.json
+vision-overlay.yml
+
+# —— 杂项 ——
+.DS_Store
+*.log
+*.tmp
+/tmp/

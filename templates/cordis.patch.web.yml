@@ -1,0 +1,142 @@
+# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; `!!js` expressions allowed).
+- id: ui-settings-general
+  name: "@deepseek-ai/dsh-client-ui-settings-general"
+  config:
+    welcomeNoticeVersion: 2026-09-28.1
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: tencent
+    model: DeepSeek-V4.1-Flash
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      tencent:
+        apiKeyEnv: TENCENT_API_KEY
+        api: openai-completions
+        baseURL: https://tokenhub.tencentmaas.com/plan/v3
+        # ⭐ 2026-10-23：声明这个 provider 的模型**能收图片**。
+        #    适配器默认只给 ['text']（schema 里的 defaultInput），不声明的话
+        #    MCP 工具返回的图片内容块会被丢掉 —— 模型只能靠读源码猜，
+        #    实测它自己都说"我没真的看见"。本机模型实测支持视觉（给它纯红 PNG，答"红色"）。
+        defaultInput: [ 'text', 'image' ]
+        # ⭐ 2026-10-23：**这里刻意不设 `reasoning`** —— 即"回到模型默认"。
+        #    适配器逻辑：`reasoning` 不设 ⇒ 不广播 defaultEffort ⇒ 请求里**不带**
+        #    reasoning_effort ⇒ 用模型自己的默认行为。
+        #    （曾短暂设成 'high' 试过，用户决定回退。）
+        #    档位声明 `reasoningEfforts` 保留：它让抽取要的 'low' 合法，那句
+        #    「档位不被支持」的警告因此不再出现；正常请求则不受影响（不带参数）。
+        models:
+          - id: deepseek-v4-pro-202606
+            name: deepseek-v4-pro-202606
+            contextWindow: 1000000
+            maxTokens: 256000
+            # ⭐ 2026-10-23：**声明可选思考档位**。不声明 ⇒ 适配器按 reasoning:false 处理
+            #    ⇒ 支持列表为空 ⇒ 任何档位都被拒（日志里那句「档位 X 不被支持」）。
+            #    实测本机端点：接受 minimal/low/medium/high，**拒绝 off**（HTTP 400）
+            #    ⇒ off 写成 null（源码允许：只有 off 可以不给 wire 值 = 不发该参数）；
+            #      xhigh/max 端点没有对应值，映射到 high，避免上层要高档时直接报错。
+            reasoningEfforts:
+              'off': null # ⚠️ 必须引号！裸写 off 会被 YAML 当成布尔 False
+              minimal: 'minimal'
+              low: 'low'
+              medium: 'medium'
+              high: 'high'
+              xhigh: 'high'
+              max: 'high'
+          - id: DeepSeek-V4.1-Flash
+            name: DeepSeek-V4.1-Flash
+            contextWindow: 1000000
+            maxTokens: 256000
+            # ⭐ 2026-10-23：**声明可选思考档位**。不声明 ⇒ 适配器按 reasoning:false 处理
+            #    ⇒ 支持列表为空 ⇒ 任何档位都被拒（日志里那句「档位 X 不被支持」）。
+            #    实测本机端点：接受 minimal/low/medium/high，**拒绝 off**（HTTP 400）
+            #    ⇒ off 写成 null（源码允许：只有 off 可以不给 wire 值 = 不发该参数）；
+            #      xhigh/max 端点没有对应值，映射到 high，避免上层要高档时直接报错。
+            reasoningEfforts:
+              'off': null # ⚠️ 必须加引号：裸写 off 会被 YAML 当成布尔 False
+              minimal: 'minimal'
+              low: 'low'
+              medium: 'medium'
+              high: 'high'
+              xhigh: 'high'
+              max: 'high'
+- id: bili-scroll
+  name: dsh-bili-scroll
+  config:
+    enabled: true
+    perDay: 20
+    peakValley: true
+    noon: true
+    night: true
+    autoComment: true
+    dmMode: both
+    dmUid: 0                    # ← 填收件人（主号）UID
+    transcribe: true
+    commentPerRound: 1
+    mentionName: "<你的 B站 昵称>"
+    keywords:
+      - dsh
+      - 人生意义
+      - 巫师经济学
+      - 科学投机
+      - 伊恩轩呐
+      - 铉铮
+      - 外刊博客
+    pythonPath: /ABSOLUTE/PATH/TO/bili-duty/.venv/bin/python
+    dshBin: /ABSOLUTE/PATH/TO/bili-duty/dm-session.mjs
+    personaPrompt: 你是 Dora，一条鲸鱼娘；B站
+      账号叫「<你的机器人账号名>」（账号名是旧的，别把它当你的名字）。完整的核心设定、自我演进区与两个台账区都在当前工作目录的 AGENTS.md 里
+      —— **严格按它来**，别用默认人格、也别自称「本鱼/人家」。名字就是 Dora，不要写成中文译名。
+    replyToComments: true
+    favFolderId: 3275354265
+- id: meow-memory
+  name: meow-memory
+  config:
+    # 模型文案/写记忆的语言。你的消息都是中文 ⇒ zh。不写也是 zh（出厂默认），
+    # 显式写才不会再弹「首次设置」提示、也不会随默认值变动而漂移。
+    promptLang: 'zh'
+    # 每次 dream 收尾用 VACUUM INTO 做一致性快照，轮转到 memory.db.bak。
+    # 记忆库是唯一不可再生的资产，值得开。
+    backup:
+      enabled: true
+    # ⭐ 2026-10-23：把**每条消息的关键词命中注入**关掉（0 = 不注入），
+    #    用户要求「不要每次都注入一堆提示词」。
+    #    改为按需查：工具 memory_search / memory_semantic / memory_project /
+    #    recall_turns 都照旧可用，协议写在 skill `memory-recall` 里
+    #    （~/.dsh/skills/memory-recall/SKILL.md，catalog 里只占一行）。
+    #    ⚠️ 注意：meow 的「首轮长期记忆注入」（soul/user/全局规则）**没有开关**，
+    #       只有 enabled:false 能关掉整个插件 —— 那条是每会话一次、刻意保留。
+    hitTopK: 0
+
+- id: dsh-memory-semantic
+  name: dsh-memory-semantic
+  config:
+    # ⚠️ 本插件「任何非法值都会安静地退回默认值，配置写错不会报错」⇒ 键名须逐字准确。
+    ollama:
+      url: http://127.0.0.1:11434
+      model: bge-m3
+      autoStart: true # 探测不到就在后台拉起，并每 5 分钟低频守护
+    turns:
+      live:
+        enabled: true # 每轮抽取（出厂默认已开，显式写出表明是选定行为）
+        # ⚠️ 2026-10-23 撤掉上一版写的 `reasoningEffort: 'off'` —— 那是颗**雷**：
+        #    实测本机端点**明确拒绝** `reasoning_effort: "off"`（HTTP 400 参数非法），
+        #    只有 minimal/low/medium/high 合法。它现在没炸，只是因为适配器先把 off 拒了、
+        #    降档重试（那层兜底救的）；若适配器行为一变让 off 通过 ⇒ 每次抽取都 400。
+        #    ⇒ 恢复默认（默认档位 'low' 同样会被适配器拒、同样降档，行为完全一致）。
+        #    想彻底消掉那句警告，得给模型**声明 reasoningEfforts**（见记忆里的选型说明）。
+      recallShadow:
+        # ⭐ 2026-10-23：**关掉"每条消息自动注入召回块"**。
+        #    原来每条消息都塞一段【记忆召回】5 条命中（约 1.5~2KB），
+        #    实测每次调用都发一长串、性价比低。改成**按需检索**：
+        #    工具（recall_turns / memory_search / memory_semantic）照旧可用，
+        #    另外在 ~/.dsh/skills/memory-recall/ 放了一个 skill 说明"该用哪个、怎么用"，
+        #    catalog 里只占一行、正文按需加载。
+        #    ⚠️ 配置在挂载时读 ⇒ 要**重载插件/重启 dsh** 才生效。
+        inject: false # ⚠️ 出厂默认是 false，必须显式打开才有「自动注入」
+    guard:
+      dryRun: true # 作者建议：首次先观察一天，确认判据不误伤再改回 false
