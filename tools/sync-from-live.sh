@@ -14,7 +14,7 @@ KIT="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "① 同步脚本（$LIVE → $KIT/scripts）"
 for f in patch-plugin.sh selfcheck-headless.sh archive-sessions.sh \
-         dm-session.mjs feedback.py rag.py duty_mcp.py; do
+         dm-session.mjs feedback.py rag.py duty_mcp.py persona-selfwrite.sh; do
   if [ -f "$LIVE/$f" ]; then
     cp -p "$LIVE/$f" "$KIT/scripts/$f"; echo "   ✓ $f"
   else
