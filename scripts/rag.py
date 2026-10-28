@@ -47,7 +47,7 @@ def embed(texts, timeout=180):
     out = []
     B = 16
     for i in range(0, len(texts), B):
-        batch = [t[:4000] for t in texts[i:i + B]]
+        batch = [t[:1200] for t in texts[i:i + B]]
         body = json.dumps({'model': MODEL, 'input': batch}).encode()
         req = urllib.request.Request(OLLAMA + '/api/embed', data=body,
                                      headers={'Content-Type': 'application/json'})
@@ -113,6 +113,17 @@ def chunks_from_corpus():
             continue
         txt = f.read_text(encoding='utf-8', errors='replace')
         add('单条笔记', m.group(2), m.group(1), _title_of(txt), txt)
+
+    # ②b QQ 聊天记录（我们自己那座桥写的：一行一条 `- <日期> <说话人> <内容>`）
+    for f in sorted((HOME / 'digest').glob('qq-*.md')):
+        for line in f.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if not line.startswith('- '):
+                continue
+            parts = line[2:].split(' ', 2)
+            if len(parts) < 3:
+                continue
+            add('QQ聊天', parts[0], '', parts[1], parts[2][:1500])
 
     # ③ digest/*.md —— 一行一条（连"跳过"的都在，是全集索引）
     for f in sorted((HOME / 'digest').glob('*.md')):
